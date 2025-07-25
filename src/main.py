@@ -9,8 +9,8 @@ from telegram import Bot, Update
 from telegram.error import RetryAfter
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-from src.prompts import AGENT_INSTRUCTIONS
-from src.tools import wikipedia_search
+from prompts import AGENT_INSTRUCTIONS
+from tools import wikipedia_search
 
 # Set up logging to write logs to a file
 logging.basicConfig(
