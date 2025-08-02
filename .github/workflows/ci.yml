@@ -44,6 +44,8 @@ jobs:
         uv sync --extra test
 
     - name: Run tests
+      env:
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
       run: |
         uv run pytest tests/ -v --cov=src --cov-report=xml --cov-report=html
 
