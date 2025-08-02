@@ -65,7 +65,7 @@ class TestIntegration:
         assert knoll_agent.name == "Knoll"
         assert knoll_agent.instructions is not None
         assert len(knoll_agent.instructions) > 0
-        assert knoll_agent.model == "gpt-4.1-mini"
+        assert knoll_agent.model == "gpt-4.1"
         assert len(knoll_agent.tools) > 0
 
     @pytest.mark.integration
