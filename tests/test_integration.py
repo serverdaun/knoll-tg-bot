@@ -42,7 +42,9 @@ class TestIntegration:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Wikipedia tool integration test requires external API access")
+    @pytest.mark.skip(
+        reason="Wikipedia tool integration test requires external API access"
+    )
     async def test_wikipedia_tool_integration(self):
         """Test Wikipedia tool integration."""
         # Arrange
