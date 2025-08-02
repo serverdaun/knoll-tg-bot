@@ -4,13 +4,13 @@ import os
 import time
 from contextlib import asynccontextmanager
 
+import uvicorn
 from agents import Agent, ModelSettings, Runner, WebSearchTool, trace
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from telegram import Update
 from telegram.error import RetryAfter
 from telegram.ext import Application, CommandHandler, ContextTypes
-import uvicorn
 
 from src.prompts import AGENT_INSTRUCTIONS
 from src.tools import wikipedia_search

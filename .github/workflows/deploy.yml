@@ -5,7 +5,7 @@ on:
 
 env:
   AWS_REGION: eu-central-1
-  IMAGE_TAG: v.0.2
+  IMAGE_TAG: v.0.3
   REPO_NAME: projects/knoll-bot
 
 jobs:
