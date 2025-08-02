@@ -165,15 +165,25 @@ async def setup_webhook():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Set up webhook
-    await setup_webhook()
+    # Startup: Initialize Telegram app and set up webhook
+    try:
+        await telegram_app.initialize()
+        await setup_webhook()
+    except Exception as e:
+        logger.warning(f"Failed to initialize Telegram app: {e}")
+        logger.info("Continuing without Telegram bot initialization")
     yield
-    # Shutdown: Remove webhook
+    # Shutdown: Remove webhook and shutdown app
     try:
         await telegram_app.bot.delete_webhook()
         logger.info("Webhook removed")
     except Exception as e:
         logger.error(f"Error removing webhook: {e}")
+    finally:
+        try:
+            await telegram_app.shutdown()
+        except Exception as e:
+            logger.error(f"Error shutting down Telegram app: {e}")
 
 
 # Create FastAPI app with lifespan
