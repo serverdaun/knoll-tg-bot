@@ -5,7 +5,7 @@ import time
 
 from agents import Agent, ModelSettings, Runner, WebSearchTool, trace
 from dotenv import load_dotenv
-from telegram import Bot, Update
+from telegram import Update
 from telegram.error import RetryAfter
 from telegram.ext import Application, CommandHandler, ContextTypes
 
@@ -116,7 +116,8 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await update.message.reply_text(
                         f"Response ready but rate limited. Please wait {retry_after} seconds before asking again."
                     )
-                except:
+                except Exception as e:
+                    logger.warning(f"Error sending rate limit message: {e}")
                     pass  # If even this fails, just log it
 
     except RetryAfter as e:
@@ -129,7 +130,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 f"Rate limit exceeded. Please wait {retry_after} seconds before trying again."
             )
-        except:
+        except Exception:
             logger.warning(f"Rate limit exceeded: {retry_after} seconds")
     except Exception as e:
         logger.error(f"Error processing query for {user_name}: {e}")

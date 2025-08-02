@@ -1,6 +1,5 @@
 """Tests for the main module."""
 
-import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 

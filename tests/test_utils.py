@@ -4,8 +4,6 @@ import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from src.main import MIN_MESSAGE_INTERVAL, last_message_time
 
 

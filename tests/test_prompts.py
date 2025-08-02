@@ -1,7 +1,5 @@
 """Tests for the prompts module."""
 
-import pytest
-
 from src.prompts import AGENT_INSTRUCTIONS
 
 

@@ -1,6 +1,5 @@
 """Integration tests for the Knoll bot."""
 
-import asyncio
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -82,7 +81,7 @@ class TestIntegration:
         """Test rate limiting in integration context."""
         import time
 
-        from src.main import MIN_MESSAGE_INTERVAL, last_message_time
+        from src.main import last_message_time
 
         # Arrange
         mock_update = MagicMock()
