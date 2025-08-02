@@ -1,3 +1,5 @@
+[![CI](https://github.com/serverdaun/knoll-tg-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/serverdaun/knoll-tg-bot/actions/workflows/ci.yml)
+
 # Knoll Bot
 
 A Telegram bot powered by OpenAI agents that provides helpful answers using Wikipedia and web search tools.
