@@ -11,3 +11,27 @@ wheels/
 
 # Environment variables
 .env
+
+# Testing
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Security reports
+bandit-report.json
+safety-report.json
