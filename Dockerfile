@@ -35,4 +35,4 @@ USER app
 EXPOSE 8080
 
 # Set the default command
-CMD ["uv", "run", "python", "src/main.py"] 
+CMD ["uv", "run", "python", "-m", "src.main"] 
