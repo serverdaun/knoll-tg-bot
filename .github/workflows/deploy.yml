@@ -39,12 +39,12 @@ jobs:
         docker push $ECR_URI:$IMAGE_TAG
         
         # Tag as latest and push
-        docker tag $ECR_URI:$IMAGE_TAG $ECR_URI:latest
-        docker push $ECR_URI:latest
+        docker tag $ECR_URI:$IMAGE_TAG $ECR_URI:$IMAGE_TAG
+        docker push $ECR_URI:$IMAGE_TAG
         
         # Output the image URI for reference
         echo "Image pushed: $ECR_URI:$IMAGE_TAG"
-        echo "Latest image: $ECR_URI:latest"
+        echo "Latest image: $ECR_URI:$IMAGE_TAG"
 
     - name: Verify ECR deployment
       run: |
