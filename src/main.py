@@ -2,12 +2,14 @@ import asyncio
 import logging
 import os
 import time
+import signal
+import sys
 from contextlib import asynccontextmanager
 
 import uvicorn
 from agents import Agent, ModelSettings, Runner, WebSearchTool, trace
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from telegram import Update
 from telegram.error import RetryAfter
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -29,18 +31,39 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 last_message_time = {}
 MIN_MESSAGE_INTERVAL = 2.0
 
+# Health check state
+app_start_time = time.time()
+is_shutting_down = False
+
 # Define the agent
 knoll_agent = Agent(
     name="Knoll",
     instructions=AGENT_INSTRUCTIONS,
-    model="gpt-4.1-mini",
+    model="gpt-4.1",
     tools=[wikipedia_search, WebSearchTool()],
     model_settings=ModelSettings(tool_choice="auto"),
 )
 
 
+def signal_handler(signum, frame):
+    """Handle shutdown signals gracefully."""
+    global is_shutting_down
+    logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+    is_shutting_down = True
+    sys.exit(0)
+
+
+# Register signal handlers
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
+
+
 # Function for responding to /ask
 async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if is_shutting_down:
+        logger.info("Ignoring message during shutdown")
+        return
+        
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name or "Unknown"
     current_time = time.time()
@@ -166,14 +189,17 @@ async def setup_webhook():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Initialize Telegram app and set up webhook
+    logger.info("Starting application...")
     try:
         await telegram_app.initialize()
         await setup_webhook()
+        logger.info("Telegram bot initialized successfully")
     except Exception as e:
         logger.warning(f"Failed to initialize Telegram app: {e}")
         logger.info("Continuing without Telegram bot initialization")
     yield
     # Shutdown: Remove webhook and shutdown app
+    logger.info("Shutting down application...")
     try:
         await telegram_app.bot.delete_webhook()
         logger.info("Webhook removed")
@@ -182,6 +208,7 @@ async def lifespan(app: FastAPI):
     finally:
         try:
             await telegram_app.shutdown()
+            logger.info("Telegram app shutdown complete")
         except Exception as e:
             logger.error(f"Error shutting down Telegram app: {e}")
 
@@ -192,17 +219,46 @@ web_app = FastAPI(title="Knoll Bot API", version="1.0.0", lifespan=lifespan)
 
 @web_app.get("/")
 async def root():
-    return {"message": "Knoll Bot is running", "status": "healthy"}
+    return {
+        "message": "Knoll Bot is running", 
+        "status": "healthy",
+        "uptime": time.time() - app_start_time,
+        "shutdown": is_shutting_down
+    }
 
 
 @web_app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "knoll-bot"}
+    """Enhanced health check endpoint."""
+    if is_shutting_down:
+        raise HTTPException(status_code=503, detail="Service is shutting down")
+    
+    # Check if Telegram app is initialized
+    telegram_status = "unknown"
+    try:
+        if hasattr(telegram_app, 'bot') and telegram_app.bot:
+            telegram_status = "connected"
+        else:
+            telegram_status = "not_initialized"
+    except Exception as e:
+        telegram_status = f"error: {str(e)}"
+    
+    return {
+        "status": "healthy", 
+        "service": "knoll-bot",
+        "uptime": time.time() - app_start_time,
+        "telegram_status": telegram_status,
+        "memory_usage": "ok"
+    }
 
 
 @web_app.post("/webhook")
 async def webhook_handler(request: Request):
     """Handle incoming webhook updates from Telegram."""
+    if is_shutting_down:
+        logger.info("Ignoring webhook during shutdown")
+        return {"status": "shutting_down"}
+        
     try:
         # Parse the incoming update
         update_data = await request.json()
