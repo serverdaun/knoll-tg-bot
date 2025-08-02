@@ -1,15 +1,15 @@
 import asyncio
 import logging
 import os
-import time
 import signal
 import sys
+import time
 from contextlib import asynccontextmanager
 
 import uvicorn
 from agents import Agent, ModelSettings, Runner, WebSearchTool, trace
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from telegram import Update
 from telegram.error import RetryAfter
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -63,7 +63,7 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_shutting_down:
         logger.info("Ignoring message during shutdown")
         return
-        
+
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name or "Unknown"
     current_time = time.time()
@@ -220,10 +220,10 @@ web_app = FastAPI(title="Knoll Bot API", version="1.0.0", lifespan=lifespan)
 @web_app.get("/")
 async def root():
     return {
-        "message": "Knoll Bot is running", 
+        "message": "Knoll Bot is running",
         "status": "healthy",
         "uptime": time.time() - app_start_time,
-        "shutdown": is_shutting_down
+        "shutdown": is_shutting_down,
     }
 
 
@@ -232,23 +232,23 @@ async def health_check():
     """Enhanced health check endpoint."""
     if is_shutting_down:
         raise HTTPException(status_code=503, detail="Service is shutting down")
-    
+
     # Check if Telegram app is initialized
     telegram_status = "unknown"
     try:
-        if hasattr(telegram_app, 'bot') and telegram_app.bot:
+        if hasattr(telegram_app, "bot") and telegram_app.bot:
             telegram_status = "connected"
         else:
             telegram_status = "not_initialized"
     except Exception as e:
         telegram_status = f"error: {str(e)}"
-    
+
     return {
-        "status": "healthy", 
+        "status": "healthy",
         "service": "knoll-bot",
         "uptime": time.time() - app_start_time,
         "telegram_status": telegram_status,
-        "memory_usage": "ok"
+        "memory_usage": "ok",
     }
 
 
@@ -258,7 +258,7 @@ async def webhook_handler(request: Request):
     if is_shutting_down:
         logger.info("Ignoring webhook during shutdown")
         return {"status": "shutting_down"}
-        
+
     try:
         # Parse the incoming update
         update_data = await request.json()
