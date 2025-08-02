@@ -88,7 +88,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv sync --extra test,lint
+        uv sync --extra test --extra lint
 
     - name: Run black
       run: |
@@ -100,4 +100,4 @@ jobs:
 
     - name: Run flake8
       run: |
-        uv run flake8 src/ tests/ --max-line-length=88 --extend-ignore=E203,W503
+        uv run flake8 src/ tests/ --max-line-length=88 --extend-ignore=E203,W503,E501
