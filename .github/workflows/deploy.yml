@@ -1,0 +1,57 @@
+name: Deploy to ECR
+
+on:
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-central-1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, tag, and push image to Amazon ECR
+      env:
+        ECR_URI: ${{ secrets.ECR_URI }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build the Docker image
+        docker build -t $ECR_URI:$IMAGE_TAG .
+        
+        # Push the tagged image
+        docker push $ECR_URI:$IMAGE_TAG
+        
+        # Tag as latest and push
+        docker tag $ECR_URI:$IMAGE_TAG $ECR_URI:latest
+        docker push $ECR_URI:latest
+        
+        # Output the image URI for reference
+        echo "Image pushed: $ECR_URI:$IMAGE_TAG"
+        echo "Latest image: $ECR_URI:latest"
+
+    - name: Verify ECR deployment
+      run: |
+        # Extract repository name from ECR URI
+        REPO_NAME=$(echo ${{ secrets.ECR_URI }} | sed 's/.*\///')
+        
+        # List images in the repository
+        aws ecr describe-images \
+          --repository-name $REPO_NAME \
+          --region ${{ env.AWS_REGION }} \
+          --query 'imageDetails[*].[imageTags,imagePushedAt]' \
+          --output table 
