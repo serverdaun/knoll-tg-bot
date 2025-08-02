@@ -6,6 +6,7 @@ on:
 env:
   AWS_REGION: eu-central-1
   IMAGE_TAG: v.0.1
+  REPO_NAME: projects/knoll-bot
 
 jobs:
   deploy:
@@ -47,12 +48,9 @@ jobs:
 
     - name: Verify ECR deployment
       run: |
-        # Extract repository name from ECR URI
-        REPO_NAME=$(echo ${{ secrets.ECR_URI }} | sed 's/.*\///')
-        
         # List images in the repository
         aws ecr describe-images \
-          --repository-name $REPO_NAME \
+          --repository-name ${{ env.REPO_NAME }} \
           --region ${{ env.AWS_REGION }} \
           --query 'imageDetails[*].[imageTags,imagePushedAt]' \
           --output table 
