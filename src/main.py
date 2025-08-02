@@ -2,12 +2,15 @@ import asyncio
 import logging
 import os
 import time
+from contextlib import asynccontextmanager
 
 from agents import Agent, ModelSettings, Runner, WebSearchTool, trace
 from dotenv import load_dotenv
+from fastapi import FastAPI, Request
 from telegram import Update
 from telegram.error import RetryAfter
 from telegram.ext import Application, CommandHandler, ContextTypes
+import uvicorn
 
 from src.prompts import AGENT_INSTRUCTIONS
 from src.tools import wikipedia_search
@@ -143,12 +146,68 @@ async def ask(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
 
-# Define the application
-app = Application.builder().token(TELEGRAM_TOKEN).build()
+# Define the Telegram application
+telegram_app = Application.builder().token(TELEGRAM_TOKEN).build()
 
 # Register the command handler
-app.add_handler(CommandHandler("ask", ask))
+telegram_app.add_handler(CommandHandler("ask", ask))
+
+
+async def setup_webhook():
+    """Set up the webhook URL."""
+    webhook_url = os.getenv("WEBHOOK_URL")
+    if webhook_url:
+        await telegram_app.bot.set_webhook(url=f"{webhook_url}/webhook")
+        logger.info(f"Webhook set to: {webhook_url}/webhook")
+    else:
+        logger.warning("WEBHOOK_URL not set, webhook not configured")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Set up webhook
+    await setup_webhook()
+    yield
+    # Shutdown: Remove webhook
+    try:
+        await telegram_app.bot.delete_webhook()
+        logger.info("Webhook removed")
+    except Exception as e:
+        logger.error(f"Error removing webhook: {e}")
+
+
+# Create FastAPI app with lifespan
+web_app = FastAPI(title="Knoll Bot API", version="1.0.0", lifespan=lifespan)
+
+
+@web_app.get("/")
+async def root():
+    return {"message": "Knoll Bot is running", "status": "healthy"}
+
+
+@web_app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "knoll-bot"}
+
+
+@web_app.post("/webhook")
+async def webhook_handler(request: Request):
+    """Handle incoming webhook updates from Telegram."""
+    try:
+        # Parse the incoming update
+        update_data = await request.json()
+        update = Update.de_json(update_data, telegram_app.bot)
+
+        # Process the update
+        await telegram_app.process_update(update)
+
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Error processing webhook: {e}")
+        return {"status": "error", "message": str(e)}
+
 
 if __name__ == "__main__":
-    logger.info("Starting Knoll bot...")
-    app.run_polling()
+    logger.info("Starting Knoll bot with webhook support...")
+    port = int(os.getenv("PORT", 8080))
+    uvicorn.run(web_app, host="0.0.0.0", port=port)
