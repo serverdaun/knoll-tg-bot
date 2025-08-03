@@ -179,30 +179,79 @@ telegram_app.add_handler(CommandHandler("ask", ask))
 async def setup_webhook():
     """Set up the webhook URL."""
     webhook_url = os.getenv("WEBHOOK_URL")
-    if webhook_url:
-        await telegram_app.bot.set_webhook(url=f"{webhook_url}/webhook")
-        logger.info(f"Webhook set to: {webhook_url}/webhook")
-    else:
+    if not webhook_url:
         logger.warning("WEBHOOK_URL not set, webhook not configured")
+        return False
+
+    try:
+        # Check if webhook is already set
+        current_webhook = await telegram_app.bot.get_webhook_info()
+        logger.info(f"Current webhook info: {current_webhook}")
+
+        # Set the webhook
+        success = await telegram_app.bot.set_webhook(url=f"{webhook_url}/webhook")
+        if success:
+            logger.info(f"Webhook successfully set to: {webhook_url}/webhook")
+            return True
+        else:
+            logger.error("Failed to set webhook")
+            return False
+    except Exception as e:
+        logger.error(f"Error setting up webhook: {e}")
+        return False
+
+
+async def check_webhook_status():
+    """Check if webhook is properly configured."""
+    try:
+        webhook_info = await telegram_app.bot.get_webhook_info()
+        logger.info(f"Webhook status: {webhook_info}")
+        return webhook_info.get("url") is not None
+    except Exception as e:
+        logger.error(f"Error checking webhook status: {e}")
+        return False
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Initialize Telegram app and set up webhook
     logger.info("Starting application...")
+    webhook_configured = False
+
     try:
         await telegram_app.initialize()
-        await setup_webhook()
-        logger.info("Telegram bot initialized successfully")
+        logger.info("Telegram app initialized")
+
+        # Try to set up webhook with retries
+        for attempt in range(3):
+            try:
+                webhook_configured = await setup_webhook()
+                if webhook_configured:
+                    logger.info("Telegram bot initialized successfully with webhook")
+                    break
+                else:
+                    logger.warning(f"Webhook setup failed, attempt {attempt + 1}/3")
+                    await asyncio.sleep(2)  # Wait before retry
+            except Exception as e:
+                logger.error(f"Webhook setup error on attempt {attempt + 1}: {e}")
+                if attempt < 2:  # Don't sleep on last attempt
+                    await asyncio.sleep(2)
+
+        if not webhook_configured:
+            logger.warning("Failed to configure webhook after 3 attempts")
+
     except Exception as e:
         logger.warning(f"Failed to initialize Telegram app: {e}")
         logger.info("Continuing without Telegram bot initialization")
+
     yield
+
     # Shutdown: Remove webhook and shutdown app
     logger.info("Shutting down application...")
     try:
-        await telegram_app.bot.delete_webhook()
-        logger.info("Webhook removed")
+        if webhook_configured:
+            await telegram_app.bot.delete_webhook()
+            logger.info("Webhook removed")
     except Exception as e:
         logger.error(f"Error removing webhook: {e}")
     finally:
@@ -252,6 +301,23 @@ async def health_check():
     }
 
 
+@web_app.get("/webhook-status")
+async def webhook_status():
+    """Check webhook configuration status."""
+    try:
+        webhook_info = await telegram_app.bot.get_webhook_info()
+        return {
+            "webhook_configured": webhook_info.get("url") is not None,
+            "webhook_url": webhook_info.get("url"),
+            "last_error_date": webhook_info.get("last_error_date"),
+            "last_error_message": webhook_info.get("last_error_message"),
+            "max_connections": webhook_info.get("max_connections"),
+            "pending_update_count": webhook_info.get("pending_update_count"),
+        }
+    except Exception as e:
+        return {"error": str(e), "webhook_configured": False}
+
+
 @web_app.post("/webhook")
 async def webhook_handler(request: Request):
     """Handle incoming webhook updates from Telegram."""
@@ -262,11 +328,16 @@ async def webhook_handler(request: Request):
     try:
         # Parse the incoming update
         update_data = await request.json()
+        logger.info(
+            f"Received webhook update: {update_data.get('update_id', 'unknown')}"
+        )
+
         update = Update.de_json(update_data, telegram_app.bot)
 
         # Process the update
         await telegram_app.process_update(update)
 
+        logger.info(f"Successfully processed webhook update: {update.update_id}")
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Error processing webhook: {e}")
